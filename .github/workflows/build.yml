@@ -41,6 +41,49 @@ jobs:
           mkdir -p project
           unzip -q DriverAssistantAndroid_MVP.zip -d project
 
+      - name: Fix JVM compatibility
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          for name in ["build.gradle", "build.gradle.kts"]:
+              p = Path("project/app") / name
+              if p.exists():
+                  if name.endswith(".kts"):
+                      code = """
+          android {
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+          }
+          tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+          }
+          """
+                  else:
+                      code = """
+          android {
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+          }
+          tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+          }
+          """
+                  p.write_text(p.read_text() + "\n" + code)
+                  print("Fixed:", p)
+                  break
+          else:
+              raise SystemExit("ERROR: app Gradle file not found")
+          PY
+
       - name: Build APK
         run: gradle -p project assembleDebug
 
